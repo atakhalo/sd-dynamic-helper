@@ -1,10 +1,13 @@
 import json
+import logging
 from pathlib import Path
 
 from dynamicprompts.generators import CombinatorialPromptGenerator
 from dynamicprompts.wildcards import WildcardManager
 
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class PromptManager:
@@ -16,6 +19,7 @@ class PromptManager:
         self.generator = CombinatorialPromptGenerator(
             wildcard_manager=self.wildcard_manager
         )
+        self._apply_webui_dp_settings()
 
     def load_gen_prompt(self):
         path = self.config.gen_prompt_path
@@ -31,7 +35,40 @@ class PromptManager:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def _apply_webui_dp_settings(self):
+        """读取 WebUI config.json 中 sd-dynamic-prompts 的设置并应用到 WildcardManager"""
+        webui_config_path = self.config.webui_root / "config.json"
+        if not webui_config_path.exists():
+            logger.warning(
+                f"WebUI 配置文件不存在: {webui_config_path}"
+            )
+            return
+
+        try:
+            with open(webui_config_path, "r", encoding="utf-8") as f:
+                webui_cfg = json.load(f)
+
+            no_dedupe = webui_cfg.get("dp_wildcard_manager_no_dedupe", False)
+            no_sort = webui_cfg.get("dp_wildcard_manager_no_sort", False)
+
+            # sd-dynamic-prompts 插件中的逻辑：
+            # dedup_wildcards = not dp_wildcard_manager_no_dedupe
+            # sort_wildcards = not dp_wildcard_manager_no_sort
+            self.wildcard_manager.dedup_wildcards = not no_dedupe
+            self.wildcard_manager.sort_wildcards = not no_sort
+
+            logger.info(
+                "已从 WebUI 配置加载 sd-dynamic-prompts 设置: "
+                f"去重={'禁用' if no_dedupe else '启用'}, "
+                f"排序={'禁用' if no_sort else '启用'}"
+            )
+        except Exception as e:
+            logger.warning(f"读取 WebUI 配置失败: {e}")
+
     def generate_prompts(self):
+        # 生成前刷新 WebUI 中的 sd-dynamic-prompts 设置
+        self._apply_webui_dp_settings()
+
         template_data = self.load_gen_prompt()
         if not template_data:
             raise FileNotFoundError(

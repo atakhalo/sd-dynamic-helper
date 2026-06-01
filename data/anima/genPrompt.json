@@ -1,4 +1,4 @@
 {
-  "prompt":"${mainPrompt=__AISD/gen/2026/0503/ds3-il__} ${prePrompt=crossed legs, wide shot,} safe, solo, masterpiece, best quality, score_9,score_8, looking at viewer, large breasts, Lip Gloss, ${mainPrompt}, ${prePrompt},<lora:anima-turbo-lora-v0.1: 1><lora:MoriiMee_AnimaPreview3_byKonan: 0.5> <lora:shexyo_AnimaP_v03: 0.6> ",
+  "prompt":"${mainPrompt=__AISD/gen/2026/0503/ds4-il__} ${prePrompt=crossed legs, wide shot,} safe, solo, masterpiece, best quality, score_9,score_8, looking at viewer, large breasts, Lip Gloss, ${mainPrompt}, ${prePrompt},<lora:anima-turbo-lora-v0.1: 1><lora:MoriiMee_AnimaPreview3_byKonan: 0.5> <lora:shexyo_AnimaP_v03: 0.6> ",
   "negative_prompt": ""
 }

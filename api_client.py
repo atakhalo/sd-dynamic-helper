@@ -11,6 +11,7 @@ class WebUIClient:
     def __init__(self, config: Config):
         self.config = config
         self.base_url = config.api_url.rstrip("/")
+        self._adetailer_failed = False
 
     def is_connected(self):
         try:
@@ -86,6 +87,9 @@ class WebUIClient:
                 payload["alwayson_scripts"]["ADetailer"] = {"args": ad_args}
                 has_adetailer = True
 
+        start_time = time.time()
+        ad_actually_used = has_adetailer
+
         r = requests.post(
             f"{self.base_url}/sdapi/v1/txt2img",
             json=payload,
@@ -93,15 +97,20 @@ class WebUIClient:
         )
 
         if r.status_code != 200 and has_adetailer:
+            self._adetailer_failed = True
             del payload["alwayson_scripts"]["ADetailer"]
             r = requests.post(
                 f"{self.base_url}/sdapi/v1/txt2img",
                 json=payload,
                 timeout=600,
             )
+        else:
+            self._adetailer_failed = False
 
         if r.status_code != 200:
             raise RuntimeError(r.status_code, r.text)
+
+        elapsed = time.time() - start_time
 
         data = r.json()
         images = data.get("images", [])
@@ -115,6 +124,8 @@ class WebUIClient:
         return {
             "images": images,
             "info": info,
+            "elapsed": elapsed,
+            "ad_detailer_used": ad_actually_used and not self._adetailer_failed,
         }
 
     def interrupt(self):

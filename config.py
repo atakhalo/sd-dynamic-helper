@@ -71,6 +71,10 @@ class Config:
         return WILDCARDS_DIR
 
     @property
+    def webui_root(self):
+        return WEBUI_ROOT
+
+    @property
     def output_dir(self):
         val = self._data.get("output_dir", "")
         if val:
