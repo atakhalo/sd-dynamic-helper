@@ -1,0 +1,4 @@
+{
+  "prompt":"${mainPrompt=__AISD/gen/2026/0520/ds1__} ${prePrompt=crossed legs, wide shot,} safe, solo, masterpiece, best quality, absurdres, amazing quality, looking at viewer, large breasts, Lip Gloss,${mainPrompt}, ${prePrompt},<lora:rimixxO2:1>",
+  "negative_prompt": "worst quality, multiple views, bad quality, low quality, lowres, displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra digits, fewer digits, jaggy lines, unclear, worst detail, sketch, censored, watermark, signature, artist name,"
+}

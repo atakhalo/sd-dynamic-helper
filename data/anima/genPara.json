@@ -1,0 +1,24 @@
+{
+	"steps": 8,
+	"sampler": "ER SDE",
+	"schedule_type": "beta",
+	"cfg_scale": 1,
+	"seed": 2070153989,
+	"size": "1600x900",
+	"model": "anima_baseV10",
+	"vae": "qwen_image_vae",
+	"text_encoder": "qwen_3_06b_base",
+	"rng": "CPU",
+	"adetailer": {
+		"model": "face_yolov8n.pt",
+		"confidence": 0.3,
+		"dilate_erode": 4,
+		"mask_blur": 4,
+		"denoising_strength": 0.4,
+		"inpaint_only_masked": true,
+		"inpaint_padding": 32,
+		"version": "24.9.0"
+	},
+	"emphasis": "Original",
+	"version": "neo-2.24"
+}

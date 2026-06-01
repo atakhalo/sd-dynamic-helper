@@ -1,0 +1,406 @@
+{
+  "current_index": 9,
+  "total_count": 9,
+  "status": "completed",
+  "results": [
+    {
+      "index": 0,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 1,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 2,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 3,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 4,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 5,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 6,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 7,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 8,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 0,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 1,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 2,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 3,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 4,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 5,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 6,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 7,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 8,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "500 Server Error: Internal Server Error for url: http://127.0.0.1:7860/sdapi/v1/txt2img"
+    },
+    {
+      "index": 0,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 1,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 2,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 3,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 4,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 5,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 6,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 7,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 8,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 0,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 1,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 2,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 3,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 4,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 5,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 6,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 7,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 8,
+      "seed": "",
+      "state": "failed",
+      "file_path": "",
+      "error": "(500, '{\"error\":\"IndexError\",\"detail\":\"\",\"body\":\"\",\"message\":\"list assignment index out of range\"}')"
+    },
+    {
+      "index": 0,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0000_1780291399851.png"
+    },
+    {
+      "index": 1,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0001_1780291411642.png"
+    },
+    {
+      "index": 2,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0002_1780291423461.png"
+    },
+    {
+      "index": 3,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0003_1780291435618.png"
+    },
+    {
+      "index": 4,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0004_1780291447776.png"
+    },
+    {
+      "index": 5,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0005_1780291459514.png"
+    },
+    {
+      "index": 6,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0006_1780291471617.png"
+    },
+    {
+      "index": 7,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0007_1780291484020.png"
+    },
+    {
+      "index": 8,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0008_1780291495728.png"
+    },
+    {
+      "index": 0,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0000_1780296268741.png"
+    },
+    {
+      "index": 1,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0001_1780296286404.png"
+    },
+    {
+      "index": 2,
+      "seed": 2070153989,
+      "state": "completed",
+      "file_path": "C:\\6AIProject\\ForgeNeo\\sd-webui-forge-neo\\outputs\\sd-dynamic-helper\\img_0002_1780296304543.png"
+    },
+    {
+      "index": 3,
+      "seed": 2070153992,
+      "state": "completed"
+    },
+    {
+      "index": 4,
+      "seed": 2070153993,
+      "state": "completed"
+    },
+    {
+      "index": 5,
+      "seed": 2070153994,
+      "state": "completed"
+    },
+    {
+      "index": 6,
+      "seed": 2070153995,
+      "state": "completed"
+    },
+    {
+      "index": 7,
+      "seed": 2070153996,
+      "state": "completed"
+    },
+    {
+      "index": 8,
+      "seed": 2070153997,
+      "state": "completed"
+    },
+    {
+      "index": 0,
+      "seed": 264151366,
+      "state": "completed"
+    },
+    {
+      "index": 1,
+      "seed": 264151366,
+      "state": "completed"
+    },
+    {
+      "index": 2,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 3,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 4,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 5,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 6,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 7,
+      "seed": 2070153989,
+      "state": "completed"
+    },
+    {
+      "index": 8,
+      "seed": 2070153989,
+      "state": "completed"
+    }
+  ]
+}
