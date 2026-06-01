@@ -94,14 +94,6 @@ class GenerateWorker(QThread):
             start_idx, total, status=ProcessManager.GENERATING
         )
 
-        # 判断是否启用了 ADetailer
-        has_adetailer = False
-        ad = self.gen_para.get("adetailer")
-        if ad:
-            ad_model = ad.get("model", "face_yolov8n.pt")
-            if ad_model and ad_model != "None":
-                has_adetailer = True
-
         total_start_time = time.time()
         total_elapsed = 0.0
 
@@ -134,9 +126,8 @@ class GenerateWorker(QThread):
             prompt_text = prompt_item["prompt"]
             neg_text = prompt_item["negative_prompt"]
 
-            tag = " [ADetailer]" if has_adetailer else ""
             self.log.emit(
-                f"[{i + 1}/{total}]{tag} 正在生成: {prompt_text[:60]}..."
+                f"[{i + 1}/{total}] 正在生成: {prompt_text[:60]}..."
             )
             self.progress.emit(i, total, "generating")
 
@@ -174,8 +165,7 @@ class GenerateWorker(QThread):
                 total_elapsed += elapsed
 
                 elapsed_str = self._format_time(elapsed)
-                ad_tag = " [ADetailer]" if ad_used else ""
-                self.log.emit(f"  seed: {seed}{ad_tag} ({elapsed_str})")
+                self.log.emit(f"  seed: {seed} ({elapsed_str})")
 
                 # 生成成功才推进进度
                 self.process_mgr.update_index(
@@ -450,42 +440,6 @@ class MainWindow(QMainWindow):
         log_layout.addWidget(btn_clear_log)
         layout.addWidget(grp_log)
 
-    def _format_all_params(self, gen_para):
-        lines = []
-        simple_keys = [
-            ("steps", "Steps"),
-            ("cfg_scale", "CFG Scale"),
-            ("seed", "Seed"),
-            ("size", "Size"),
-            ("sampler", "Sampler"),
-            ("schedule_type", "Scheduler"),
-            ("model", "Model"),
-            ("model_hash", "Model Hash"),
-            ("vae", "VAE"),
-            ("text_encoder", "Text Encoder"),
-            ("rng", "RNG"),
-            ("emphasis", "Emphasis"),
-            ("version", "Version"),
-        ]
-        for key, label in simple_keys:
-            val = gen_para.get(key, "")
-            if val is not None and str(val) != "":
-                lines.append(f"{label}: {val}")
-
-        lora = gen_para.get("lora_hashes")
-        if lora:
-            hashes = ", ".join(f"{k}:{v}" for k, v in lora.items())
-            lines.append(f"LoRA Hashes: {hashes}")
-
-        ad = gen_para.get("adetailer")
-        if ad:
-            lines.append("")
-            lines.append("=== ADetailer ===")
-            for k, v in ad.items():
-                lines.append(f"  {k}: {v}")
-
-        return "\n".join(lines)
-
     def _load_config_to_ui(self):
         template_data = self.prompt_mgr.load_gen_prompt()
         if template_data:
@@ -498,7 +452,7 @@ class MainWindow(QMainWindow):
 
         gen_para = self.prompt_mgr.load_gen_para()
         if gen_para:
-            self.params_display.setPlainText(self._format_all_params(gen_para))
+            self.params_display.setPlainText(json.dumps(gen_para, ensure_ascii=False, indent=2))
             seed = gen_para.get("seed", -1)
             self.spin_seed.setValue(seed)
 

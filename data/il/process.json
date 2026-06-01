@@ -1,0 +1,17 @@
+{
+  "current_index": 2,
+  "total_count": 2,
+  "status": "completed",
+  "results": [
+    {
+      "index": 0,
+      "seed": 855209775,
+      "state": "completed"
+    },
+    {
+      "index": 1,
+      "seed": 855209776,
+      "state": "completed"
+    }
+  ]
+}

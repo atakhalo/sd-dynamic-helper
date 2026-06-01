@@ -13,7 +13,6 @@ DEFAULT_CONFIG = {
     "process": "process.json",
     "api_url": "http://127.0.0.1:7860",
     "wildcards": str(WILDCARDS_DIR),
-    "output_dir": str(WEBUI_ROOT / "outputs" / "sd-dynamic-helper"),
 }
 
 
@@ -73,13 +72,3 @@ class Config:
     @property
     def webui_root(self):
         return WEBUI_ROOT
-
-    @property
-    def output_dir(self):
-        val = self._data.get("output_dir", "")
-        if val:
-            p = Path(val)
-            if p.is_absolute():
-                return p
-            return SCRIPT_DIR / p
-        return WEBUI_ROOT / "outputs" / "sd-dynamic-helper"

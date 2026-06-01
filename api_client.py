@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import requests
+import webuiapi
 
 from config import Config
 
@@ -57,14 +58,14 @@ class WebUIClient:
         }
 
         schedule = gen_para.get("schedule_type", "")
-        valid_schedules = [
-            "automatic", "karras", "exponential", "polyexponential",
-            "normal", "simple", "uniform", "sgm_uniform",
-            "linear_quadratic", "kl_optimal", "ddim",
-            "align_your_steps", "beta", "turbo",
-            "bong_tangent", "flow_match", "flux2",
-        ]
-        if schedule and schedule.lower() in valid_schedules:
+        # valid_schedules = [
+        #     "automatic", "karras", "exponential", "polyexponential",
+        #     "normal", "simple", "uniform", "sgm_uniform",
+        #     "linear_quadratic", "kl_optimal", "ddim",
+        #     "align_your_steps", "beta", "turbo",
+        #     "bong_tangent", "flow_match", "flux2",
+        # ]
+        if schedule:
             payload["scheduler"] = schedule
 
         ad = gen_para.get("adetailer")
@@ -95,17 +96,6 @@ class WebUIClient:
             json=payload,
             timeout=600,
         )
-
-        if r.status_code != 200 and has_adetailer:
-            self._adetailer_failed = True
-            del payload["alwayson_scripts"]["ADetailer"]
-            r = requests.post(
-                f"{self.base_url}/sdapi/v1/txt2img",
-                json=payload,
-                timeout=600,
-            )
-        else:
-            self._adetailer_failed = False
 
         if r.status_code != 200:
             raise RuntimeError(r.status_code, r.text)

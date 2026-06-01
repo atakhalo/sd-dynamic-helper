@@ -1,0 +1,12 @@
+[
+  {
+    "index": 0,
+    "prompt": "  safe, solo, masterpiece, best quality, absurdres, amazing quality, looking at viewer, large breasts, Lip Gloss,A woman with dark chestnut hair woven into a loosely draped low braid, a sharp square jawline, a brass mechanical monocle over her left eye, a tiny dark mole at her eyebrow, full lips faintly smudged with machine oil. She wears an unbuttoned white linen shirt beneath a tight brown leather corset-vest, with high-waisted multi-pocket canvas utility trousers. Accessories include brass cogwheel earrings, stacked leather studded bracelets, and welding goggles pushed up onto her forehead. Faint ink-blue mechanical blueprint tattoos spread across the back of her hands., crossed legs, wide shot,,<lora:rimixxO2:1>",
+    "negative_prompt": "worst quality, multiple views, bad quality, low quality, lowres, displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra digits, fewer digits, jaggy lines, unclear, worst detail, sketch, censored, watermark, signature, artist name,"
+  },
+  {
+    "index": 1,
+    "prompt": "  safe, solo, masterpiece, best quality, absurdres, amazing quality, looking at viewer, large breasts, Lip Gloss,A woman with sea-green wet-look hair cascading down to her hips, clinging to a sharply tapered face, pale jade-green glassy eyes, small iridescent scales inlaid across her cheekbones, lips shimmering with a pearlescent finish. She wears a corset top made of mother-of-pearl shards and lace, paired with a tight fish-scale satin fishtail skirt. Adornments include a strand of irregular baroque seawater pearls, fine seaweed-textured silver arm coils, and a red coral branch hairpiece tucked above her ear. Teardrop pearl patches sit at the outer corners of her eyes, with ghostly gill-line tattoos tracing the side of her neck., crossed legs, wide shot,,<lora:rimixxO2:1>",
+    "negative_prompt": "worst quality, multiple views, bad quality, low quality, lowres, displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra digits, fewer digits, jaggy lines, unclear, worst detail, sketch, censored, watermark, signature, artist name,"
+  }
+]

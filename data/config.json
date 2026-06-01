@@ -1,7 +1,7 @@
 {
-	"genPara": "anima/genPara.json",
-	"genPrompt": "anima/genPrompt.json",
-	"process": "anima/process.json",
-	"prompts": "anima/prompts.json",
+	"genPara": "il/genPara.json",
+	"genPrompt": "il/genPrompt.json",
+	"process": "il/process.json",
+	"prompts": "il/prompts.json",
 	"api_url": "http://127.0.0.1:7860"
 }
