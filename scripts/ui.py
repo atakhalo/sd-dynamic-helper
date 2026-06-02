@@ -230,15 +230,15 @@ class GenerateWorker(QThread):
         return f"{minutes}分{secs:.1f}秒"
 
 
-from core import ProcessManager
+from scripts.core import ProcessManager
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        from config import Config
-        from core import PromptManager, ProcessManager
-        from api_client import WebUIClient
+        from scripts.config import Config
+        from scripts.core import PromptManager, ProcessManager
+        from scripts.api_client import WebUIClient
 
         self.config = Config()
         self.prompt_mgr = PromptManager(self.config)
@@ -548,7 +548,7 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择 config.json",
-            str(self.config.webui_root),
+            str(self.config.proj_dir),
             "JSON 文件 (*.json);;所有文件 (*)",
         )
         if not file_path:

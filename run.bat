@@ -1,3 +1,3 @@
 cd ../..
-venv\Scripts\python.exe extensions\sd-dynamic-helper\sd-dynamic-helper.py
+venv\Scripts\python.exe extensions\sd-dynamic-helper\scripts\sd-dynamic-helper.py
 pause

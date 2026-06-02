@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-WEBUI_ROOT = SCRIPT_DIR.parent.parent
-DATA_DIR = SCRIPT_DIR / "data"
-WILDCARDS_DIR = SCRIPT_DIR.parent / "sd-dynamic-prompts" / "wildcards"
+PROJ_DIR = Path(__file__).resolve().parent.parent
+WEBUI_ROOT = PROJ_DIR.parent.parent
+DATA_DIR = PROJ_DIR / "data"
+WILDCARDS_DIR = PROJ_DIR.parent / "sd-dynamic-prompts" / "wildcards"
 
 DEFAULT_CONFIG = {
     "genPrompt": "genPrompt.json",
@@ -73,9 +74,13 @@ class Config:
             p = Path(val)
             if p.is_absolute():
                 return p
-            return SCRIPT_DIR / p
+            return PROJ_DIR / p
         return WILDCARDS_DIR
 
     @property
     def webui_root(self):
         return WEBUI_ROOT
+
+    @property
+    def proj_dir(self):
+        return PROJ_DIR

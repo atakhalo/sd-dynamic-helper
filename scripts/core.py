@@ -5,7 +5,7 @@ from pathlib import Path
 from dynamicprompts.generators import CombinatorialPromptGenerator
 from dynamicprompts.wildcards import WildcardManager
 
-from config import Config
+from scripts.config import Config
 
 logger = logging.getLogger(__name__)
 

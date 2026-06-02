@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import webuiapi
 
-from config import Config
+from scripts.config import Config
 
 
 # ADetailer-Neo 的 ADetailerArgs pydantic 模型使用 extra="forbid"，
