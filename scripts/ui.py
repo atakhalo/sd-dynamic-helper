@@ -169,6 +169,7 @@ class GenerateWorker(QThread):
 
                 self.log.emit(f"  错误: {e}")
                 self.process_mgr.update_index(i + 1)
+        total_real_elapsed = time.time() - total_start_time
         self.log.emit(
             f"全部完成，共 {total} 张，"
             f"生成耗时 {self._format_time(total_elapsed)}，"
