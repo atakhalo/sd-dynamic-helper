@@ -1,7 +1,8 @@
 {
-	"genPara": "anima/genPara.json",
-	"genPrompt": "anima/genPrompt.json",
-	"process": "anima/process.json",
-	"prompts": "anima/prompts.json",
-	"api_url": "http://127.0.0.1:7860"
+	"genPara": "data/anima/genPara.json",
+	"genPrompt": "data/anima/genPrompt.json",
+	"process": "data/anima/process.json",
+	"prompts": "data/anima/prompts.json",
+	"api_url": "http://127.0.0.1:7860",
+	"wildcards": "../sd-dynamic-prompts/wildcards"
 }

@@ -44,7 +44,7 @@ class Config:
             return None
         p = Path(val)
         if not p.is_absolute():
-            p = DATA_DIR / p
+            p = PROJ_DIR / p
         return p
 
     @property
@@ -69,13 +69,7 @@ class Config:
 
     @property
     def wildcards_path(self):
-        val = self._data.get("wildcards", "")
-        if val:
-            p = Path(val)
-            if p.is_absolute():
-                return p
-            return PROJ_DIR / p
-        return WILDCARDS_DIR
+        return self._resolve("wildcards") or WILDCARDS_DIR
 
     @property
     def webui_root(self):
