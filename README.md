@@ -56,4 +56,4 @@ venv\Scripts\activate
 python extensions\sd-dynamic-helper\sd-dynamic-helper.py
 ```
 
-依赖（已包含在 venv 中）：`PySide6`, `requests`, `dynamicprompts`
+依赖（已包含在 venv 中）：`PySide6`, `webuiapi`, `dynamicprompts`

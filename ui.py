@@ -161,7 +161,6 @@ class GenerateWorker(QThread):
                 info = result.get("info", {})
                 seed = info.get("seed", "") if isinstance(info, dict) else ""
                 elapsed = result.get("elapsed", 0)
-                ad_used = result.get("ad_detailer_used", False)
                 total_elapsed += elapsed
 
                 elapsed_str = self._format_time(elapsed)

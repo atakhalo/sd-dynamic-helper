@@ -1,30 +1,19 @@
 {
+	"initArgs": {
+	"sd_model_checkpoint" : "prefectIllustriousXL_v8.safetensors",
+	"forge_additional_modules" : []
+	},
+	"sampler_name": "DPM++ 2M SDE",
+	"scheduler": "Karras",
 	"steps": 30,
-	"sampler": "DPM++ 2M SDE",
-	"schedule_type": "Karras",
 	"cfg_scale": 5,
 	"seed": 21700784,
-	"size": "1600x900",
-	"model": "prefectIllustriousXL_v8",
-	"model_hash": "8296ee6ced",
-	"vae": "None",
-	"text_encoder": "None",
-	"rng": "CPU",
-	"adetailer": {
-		"model": "face_yolov8n.pt",
-		"confidence": 0.3,
-		"dilate_erode": 4,
-		"mask_blur": 4,
-		"denoising_strength": 0.4,
-		"inpaint_only_masked": true,
-		"inpaint_padding": 32,
-		"version": "24.9.0"
-	},
-	"template": "safe, solo, masterpiece, best quality, absurdres, amazing quality, looking at viewer, large breasts, Lip Gloss, A woman with a chin-length bob in chestnut brown, round face, blue eyes, small nose, full lips. She wears a dark green cardigan over a white button-up shirt, a plaid knee-length skirt. Gold-rimmed glasses and pearl stud earrings. A small mole on her left cheek., crossed legs, wide shot,,<lora:rimixxO2:1>",
-	"negative_template": "worst quality, multiple views, bad quality, low quality, lowres, displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra digits, fewer digits, jaggy lines, unclear, worst detail, sketch, censored, watermark, signature, artist name,",
-	"lora_hashes": {
-		"rimixxO2": "338a72ae892c"
-	},
-	"emphasis": "Original",
-	"version": "neo-2.24"
+	"width": 1600,
+	"height": 900,
+	"ADetailer": [
+		"neo",
+		{
+			"ad_model": "face_yolov8n.pt"
+		}
+	]
 }
