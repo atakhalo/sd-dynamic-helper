@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QScrollArea,
     QSpinBox,
+    QSystemTrayIcon,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -210,6 +211,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("动态提示词生图工具")
         self.setMinimumSize(750, 780)
         self._init_ui()
+        self._init_tray()
         self._load_config_to_ui()
         self._restore_progress()
         self._update_button_states()
@@ -483,6 +485,11 @@ class MainWindow(QMainWindow):
             self._log(f"检测到未完成进度: {idx}/{total}")
             self._log("点击\"开始生图\"可继续")
 
+    def _init_tray(self):
+        self._tray = QSystemTrayIcon(self)
+        self._tray.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+        self._tray.show()
+
     def _find_notification_file(self) -> Path | None:
         """搜索 notification.mp3：PROJ_DIR → webui_root → None"""
         candidates = [
@@ -496,18 +503,29 @@ class MainWindow(QMainWindow):
                 return c
         return None
 
-    def _play_notification(self):
+    def _notify_completed(self):
+        """播放提示音并弹出 Windows 通知。"""
+        # 播放音效
         file = self._find_notification_file()
-        if not file:
-            return
+        if file:
+            try:
+                self._notify_player = QMediaPlayer()
+                self._notify_audio = QAudioOutput()
+                self._notify_player.setAudioOutput(self._notify_audio)
+                self._notify_player.setSource(QUrl.fromLocalFile(str(file)))
+                self._notify_player.play()
+            except Exception:
+                pass
+        # Windows 通知
         try:
-            self._notify_player = QMediaPlayer()
-            self._notify_audio = QAudioOutput()
-            self._notify_player.setAudioOutput(self._notify_audio)
-            self._notify_player.setSource(QUrl.fromLocalFile(str(file)))
-            self._notify_player.play()
+            self._tray.showMessage(
+                "sd-dynamic-helper-生图完成",
+                f"全部 {self._total_prompts} 张图片已生成完毕",
+                QSystemTrayIcon.MessageIcon.Information,
+                5000,
+            )
         except Exception:
-            pass  # 播放失败不阻塞
+            pass
 
     def _log(self, msg):
         timestamp = time.strftime("%H:%M:%S")
@@ -719,7 +737,7 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(total)
             self.lbl_progress_index.setText(f"已完成: {total} / {total}")
             self.process_mgr.reset()
-            self._play_notification()
+            self._notify_completed()
             self._log("进度完成，已清理 process.json")
         elif result == "paused":
             self._set_status("paused")
