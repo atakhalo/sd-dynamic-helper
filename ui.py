@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -274,6 +275,10 @@ class MainWindow(QMainWindow):
         tabs.addTab(tab_process, "生图")
         self._build_process_tab(tab_process)
 
+        tab_settings = QWidget()
+        tabs.addTab(tab_settings, "设置")
+        self._build_settings_tab(tab_settings)
+
     def _build_prompts_tab(self, parent):
         layout = QVBoxLayout(parent)
 
@@ -321,10 +326,7 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
     def _build_params_tab(self, parent):
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        container = QWidget()
-        layout = QVBoxLayout(container)
+        layout = QVBoxLayout(parent)
         layout.setContentsMargins(4, 4, 4, 4)
 
         self.params_display = QPlainTextEdit()
@@ -334,11 +336,44 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.params_display)
 
+    def _build_settings_tab(self, parent):
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(4, 4, 4, 4)
+
+        # ── 读取 config.json ──
+        grp_config = QGroupBox("配置文件")
+        cfg_layout = QVBoxLayout(grp_config)
+        cfg_row = QHBoxLayout()
+        self.btn_read_config = QPushButton("读取 config.json")
+        self.btn_read_config.clicked.connect(self._on_read_config)
+        cfg_row.addWidget(self.btn_read_config)
+        cfg_row.addStretch()
+        cfg_layout.addLayout(cfg_row)
+        self.lbl_config_path = QLabel("未选择文件")
+        cfg_layout.addWidget(self.lbl_config_path)
+        self.txt_config_preview = QPlainTextEdit()
+        self.txt_config_preview.setReadOnly(True)
+        self.txt_config_preview.setMaximumHeight(150)
+        self.txt_config_preview.setStyleSheet(
+            "QPlainTextEdit { font-family: Consolas, monospace; font-size: 10px; }"
+        )
+        cfg_layout.addWidget(self.txt_config_preview)
+        layout.addWidget(grp_config)
+
+        # ── 调试区 ──
+        grp_debug = QGroupBox("调试")
+        debug_layout = QVBoxLayout(grp_debug)
+        debug_row = QHBoxLayout()
+        self.btn_dump_options = QPushButton("输出当前 WebUI 设置到 debug-opt.json")
+        self.btn_dump_options.clicked.connect(self._on_dump_options)
+        debug_row.addWidget(self.btn_dump_options)
+        debug_row.addStretch()
+        debug_layout.addLayout(debug_row)
+        self.lbl_debug_result = QLabel("")
+        debug_layout.addWidget(self.lbl_debug_result)
+        layout.addWidget(grp_debug)
+
         layout.addStretch()
-        scroll.setWidget(container)
-        parent_layout = QVBoxLayout(parent)
-        parent_layout.setContentsMargins(0, 0, 0, 0)
-        parent_layout.addWidget(scroll)
 
     def _build_process_tab(self, parent):
         layout = QVBoxLayout(parent)
@@ -508,6 +543,46 @@ class MainWindow(QMainWindow):
         self.btn_gen_prompts.setEnabled(s in ("idle", "completed"))
 
     @Slot()
+    def _on_read_config(self):
+        """选择并读取 config.json 文件，并应用到当前配置。"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择 config.json",
+            str(self.config.webui_root),
+            "JSON 文件 (*.json);;所有文件 (*)",
+        )
+        if not file_path:
+            return
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # 应用配置
+            self.config.load_from_path(file_path)
+            # 刷新 UI
+            self._load_config_to_ui()
+            self._restore_progress()
+            self._update_button_states()
+            self.lbl_config_path.setText(f"已应用: {file_path}")
+            self.txt_config_preview.setPlainText(
+                json.dumps(data, ensure_ascii=False, indent=2)
+            )
+            self._log(f"已读取并应用配置文件: {file_path}")
+        except Exception as e:
+            QMessageBox.warning(self, "读取失败", f"无法读取配置文件:\n{e}")
+
+    @Slot()
+    def _on_dump_options(self):
+        """将 WebUI 当前设置导出到脚本所在目录的 debug-opt.json。"""
+        try:
+            target = Path(__file__).resolve().parent / "debug-opt.json"
+            saved = self.client.dump_options_to_file(target)
+            self.lbl_debug_result.setText(f"已保存: {saved}")
+            self._log(f"已导出 WebUI 设置到: {saved}")
+        except Exception as e:
+            self.lbl_debug_result.setText(f"导出失败: {e}")
+            QMessageBox.warning(self, "导出失败", str(e))
+
+    @Slot()
     def _on_random_seed(self):
         import random
         self.spin_seed.setValue(random.randint(0, 2147483647))
@@ -648,6 +723,8 @@ class MainWindow(QMainWindow):
             total = self.progress_bar.maximum()
             self.progress_bar.setValue(total)
             self.lbl_progress_index.setText(f"序号: {total} / {total}")
+            self.process_mgr.reset()
+            self._log("进度完成，已清理 process.json")
         elif result == "paused":
             self._set_status("paused")
         elif result in ("cancelled", "interrupted"):

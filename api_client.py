@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from urllib.parse import urlparse
 
 import webuiapi
@@ -179,6 +180,19 @@ class WebUIClient:
             "info": info,
             "elapsed": elapsed,
         }
+
+    def get_options(self) -> dict:
+        """获取 WebUI 当前全局设置。"""
+        return self.api.get_options()
+
+    def dump_options_to_file(self, filepath: str | Path) -> str:
+        """将 WebUI 当前全局设置导出为 JSON 文件。返回文件路径。"""
+        import json
+        options = self.get_options()
+        target = Path(filepath).resolve()
+        with open(target, "w", encoding="utf-8") as f:
+            json.dump(options, f, ensure_ascii=False, indent=2)
+        return str(target)
 
     def interrupt(self):
         try:

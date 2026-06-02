@@ -22,13 +22,20 @@ class Config:
         self._load()
 
     def _load(self):
-        config_path = DATA_DIR / "config.json"
-        if config_path.exists():
-            with open(config_path, "r", encoding="utf-8") as f:
-                user_cfg = json.load(f)
-            for k, v in user_cfg.items():
-                if v:
-                    self._data[k] = v
+        self.load_from_path(DATA_DIR / "config.json")
+
+    def load_from_path(self, path: str | Path):
+        """从指定路径加载 JSON 配置并完全替换当前设置。"""
+        p = Path(path)
+        if not p.exists():
+            return
+        # 重置为默认值，再用文件内容覆盖（不在文件中的键保留默认值）
+        self._data = dict(DEFAULT_CONFIG)
+        with open(p, "r", encoding="utf-8") as f:
+            user_cfg = json.load(f)
+        for k, v in user_cfg.items():
+            if v:
+                self._data[k] = v
 
     def _resolve(self, key):
         val = self._data.get(key, "")
