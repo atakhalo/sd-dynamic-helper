@@ -8,7 +8,7 @@ webui 动态提示词批量生图工具，支持断点续传。
 - **断点续传**：中断/暂停后重新「开始生图」可从断点继续
 
 ## 安装使用
-安装
+安装 （打包版跳过）
 1. git clone 到 webui extensions 目录
 2. 运行 pipInNeoExtensions.bat 安装 PySide6、webuiapi、dynamicprompts 到虚拟环境
 	1. ```bat
@@ -17,13 +17,16 @@ webui 动态提示词批量生图工具，支持断点续传。
 		uv pip install PySide6 webuiapi dynamicprompts
 		```
 使用
-1. 编辑 genPrompt(提示词模板)、genPara（生成参数）
-2. 运行 runInNeoExtensions.bat
+1. 以 api 形式运行 webui，
+	1. 即在 webui-user.bat 中添加`--api`参数
+	2. 如 `set COMMANDLINE_ARGS=--uv --theme dark --api`
+2. 编辑 genPrompt(提示词模板)、genPara（生成参数）
+3. 运行 runInNeoExtensions.bat （打包版运行 sd-dynamic-helper.exe）
 	1. ```bat
 		cd /d "%~dp0..\.."
 		venv\Scripts\python.exe extensions\sd-dynamic-helper\scripts\sd-dynamic-helper.py
 		```
-3. 程序会自动读取 data/config.json
+4. 程序会自动读取 data/config.json
 	1. 显示 提示词、参数 供确认
 	2. 点 生成提示词 根据 模板生成生图提示词
 	3. 点 开始生图 后可开始生图

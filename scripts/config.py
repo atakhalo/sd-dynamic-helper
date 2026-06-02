@@ -1,8 +1,15 @@
 import json
+import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-PROJ_DIR = Path(__file__).resolve().parent.parent
+# PyInstaller 打包后：代码在 sys._MEIPASS，数据在 exe 所在目录
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = Path(sys._MEIPASS).resolve() / "scripts"
+    PROJ_DIR = Path(sys.executable).resolve().parent
+else:
+    SCRIPT_DIR = Path(__file__).resolve().parent
+    PROJ_DIR = SCRIPT_DIR.parent
+
 WEBUI_ROOT = PROJ_DIR.parent.parent
 DATA_DIR = PROJ_DIR / "data"
 WILDCARDS_DIR = PROJ_DIR.parent / "sd-dynamic-prompts" / "wildcards"
