@@ -2,7 +2,9 @@ import json
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import QUrl, Qt, QThread, Signal, Slot
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
 from PySide6.QtWidgets import (
     QFileDialog,
     QGroupBox,
@@ -481,6 +483,32 @@ class MainWindow(QMainWindow):
             self._log(f"检测到未完成进度: {idx}/{total}")
             self._log("点击\"开始生图\"可继续")
 
+    def _find_notification_file(self) -> Path | None:
+        """搜索 notification.mp3：PROJ_DIR → webui_root → None"""
+        candidates = [
+            self.config.proj_dir / "notification.mp3",
+        ]
+        webui_root = self.config.webui_root
+        if webui_root:
+            candidates.append(Path(webui_root) / "notification.mp3")
+        for c in candidates:
+            if c.exists():
+                return c
+        return None
+
+    def _play_notification(self):
+        file = self._find_notification_file()
+        if not file:
+            return
+        try:
+            self._notify_player = QMediaPlayer()
+            self._notify_audio = QAudioOutput()
+            self._notify_player.setAudioOutput(self._notify_audio)
+            self._notify_player.setSource(QUrl.fromLocalFile(str(file)))
+            self._notify_player.play()
+        except Exception:
+            pass  # 播放失败不阻塞
+
     def _log(self, msg):
         timestamp = time.strftime("%H:%M:%S")
         self.txt_log.appendPlainText(f"[{timestamp}] {msg}")
@@ -691,6 +719,7 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(total)
             self.lbl_progress_index.setText(f"已完成: {total} / {total}")
             self.process_mgr.reset()
+            self._play_notification()
             self._log("进度完成，已清理 process.json")
         elif result == "paused":
             self._set_status("paused")
