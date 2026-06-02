@@ -4,5 +4,6 @@
 	"process": "data/il/process.json",
 	"prompts": "data/il/prompts.json",
 	"api_url": "http://127.0.0.1:7860",
+	"webui": "../..",
 	"wildcards": "../sd-dynamic-prompts/wildcards"
 }

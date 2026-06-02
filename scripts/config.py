@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "prompts": "prompts.json",
     "process": "process.json",
     "api_url": "http://127.0.0.1:7860",
+    "webui" : str(WEBUI_ROOT),
     "wildcards": str(WILDCARDS_DIR),
 }
 
@@ -73,7 +74,7 @@ class Config:
 
     @property
     def webui_root(self):
-        return WEBUI_ROOT
+        return self._resolve("webui")
 
     @property
     def proj_dir(self):
