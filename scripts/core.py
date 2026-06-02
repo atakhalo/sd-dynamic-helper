@@ -122,21 +122,12 @@ class PromptManager:
 
 
 class ProcessManager:
-    IDLE = "idle"
-    GENERATING = "generating"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
     def __init__(self, config: Config):
         self.config = config
 
     def _default(self):
         return {
             "current_index": 0,
-            "total_count": 0,
-            "status": self.IDLE,
-            "results": [],
         }
 
     def load(self):
@@ -166,26 +157,9 @@ class ProcessManager:
     def reset(self):
         self.save(self._default())
 
-    def update_index(self, index, total, status=None, result=None):
-        data = self.load()
-        data["current_index"] = index
-        data["total_count"] = total
-        if status:
-            data["status"] = status
-        if result is not None:
-            data["results"].append(result)
-        self.save(data)
-        return data
+    def update_index(self, index):
+        self.save({"current_index": index})
 
-    def can_resume(self):
+    def can_resume(self, total):
         data = self.load()
-        return (
-            data["status"] in (self.PAUSED, self.GENERATING)
-            and data["current_index"] < data["total_count"]
-        )
-
-    def get_resume_index(self):
-        data = self.load()
-        if self.can_resume():
-            return data["current_index"]
-        return 0
+        return 0 < data["current_index"] < total

@@ -77,7 +77,7 @@ class GenerateWorker(QThread):
     def cancel(self):
         self._cancelled = True
         self._paused = False
-        self.client.interrupt()
+        # 不中断当前生图，等待当前完成后不推进
 
     def interrupt(self):
         self._interrupted = True
@@ -91,35 +91,24 @@ class GenerateWorker(QThread):
         if start_idx >= total:
             start_idx = 0
 
-        self.process_mgr.update_index(
-            start_idx, total, status=ProcessManager.GENERATING
-        )
-
         total_start_time = time.time()
         total_elapsed = 0.0
 
         for i in range(start_idx, total):
             if self._cancelled:
                 self.log.emit("已取消")
-                self.process_mgr.update_index(
-                    i, total, status=ProcessManager.CANCELLED
-                )
                 self.finished.emit("cancelled")
                 return
 
             if self._interrupted:
                 self.log.emit("已中断")
-                self.process_mgr.update_index(
-                    i, total, status=ProcessManager.PAUSED
-                )
+                self.process_mgr.update_index(i)
                 self.finished.emit("interrupted")
                 return
 
             if self._paused:
                 self.log.emit(f"已暂停于第 {i + 1}/{total} 张")
-                self.process_mgr.update_index(
-                    i, total, status=ProcessManager.PAUSED
-                )
+                self.process_mgr.update_index(i)
                 self.finished.emit("paused")
                 return
 
@@ -144,17 +133,12 @@ class GenerateWorker(QThread):
                 # 如果 API 调用期间收到了中断/取消，不推进进度
                 if self._interrupted:
                     self.log.emit("已中断，跳过当前进度")
-                    self.process_mgr.update_index(
-                        i, total, status=ProcessManager.PAUSED
-                    )
+                    self.process_mgr.update_index(i)
                     self.finished.emit("interrupted")
                     return
 
                 if self._cancelled:
                     self.log.emit("已取消，跳过当前进度")
-                    self.process_mgr.update_index(
-                        i, total, status=ProcessManager.CANCELLED
-                    )
                     self.finished.emit("cancelled")
                     return
 
@@ -168,52 +152,23 @@ class GenerateWorker(QThread):
                 self.log.emit(f"  seed: {seed} ({elapsed_str})")
 
                 # 生成成功才推进进度
-                self.process_mgr.update_index(
-                    i + 1,
-                    total,
-                    status=ProcessManager.GENERATING,
-                    result={
-                        "index": i,
-                        "seed": seed,
-                        "state": "completed",
-                    },
-                )
+                self.process_mgr.update_index(i + 1)
 
             except Exception as e:
                 # 如果异常是由中断/取消引起的，不推进进度
                 if self._interrupted:
                     self.log.emit("已中断")
-                    self.process_mgr.update_index(
-                        i, total, status=ProcessManager.PAUSED
-                    )
+                    self.process_mgr.update_index(i)
                     self.finished.emit("interrupted")
                     return
 
                 if self._cancelled:
                     self.log.emit("已取消")
-                    self.process_mgr.update_index(
-                        i, total, status=ProcessManager.CANCELLED
-                    )
                     self.finished.emit("cancelled")
                     return
 
                 self.log.emit(f"  错误: {e}")
-                self.process_mgr.update_index(
-                    i + 1,
-                    total,
-                    status=ProcessManager.GENERATING,
-                    result={
-                        "index": i,
-                        "seed": "",
-                        "state": "failed",
-                        "error": str(e),
-                    },
-                )
-
-        self.process_mgr.update_index(
-            total, total, status=ProcessManager.COMPLETED
-        )
-        total_real_elapsed = time.time() - total_start_time
+                self.process_mgr.update_index(i + 1)
         self.log.emit(
             f"全部完成，共 {total} 张，"
             f"生成耗时 {self._format_time(total_elapsed)}，"
@@ -246,6 +201,8 @@ class MainWindow(QMainWindow):
         self.client = WebUIClient(self.config)
         self.worker = None
         self._current_status = "idle"
+        self._terminated = False  # 标记是否为终止操作
+        self._total_prompts = 0  # 当前提示词总数缓存
 
         self.setWindowTitle("动态提示词生图工具")
         self.setMinimumSize(750, 780)
@@ -496,6 +453,7 @@ class MainWindow(QMainWindow):
     def _refresh_prompt_count(self):
         prompts = self.prompt_mgr.load_prompts()
         count = len(prompts)
+        self._total_prompts = count
         self.lbl_prompt_count.setText(f"已加载: {count} 条")
         return count
 
@@ -512,15 +470,14 @@ class MainWindow(QMainWindow):
         self.txt_prompt_list.setPlainText("\n".join(lines))
 
     def _restore_progress(self):
-        if self.process_mgr.can_resume():
-            data = self.process_mgr.load()
-            idx = data["current_index"]
-            total = data["total_count"]
-            status = data["status"]
+        total = self._refresh_prompt_count()
+        data = self.process_mgr.load()
+        idx = data.get("current_index", 0)
+        if total > 0 and self.process_mgr.can_resume(total):
             self.progress_bar.setMaximum(total)
             self.progress_bar.setValue(idx)
-            self.lbl_progress_index.setText(f"序号: {idx} / {total}")
-            self._log(f"检测到未完成进度: {idx}/{total} (状态: {status})")
+            self.lbl_progress_index.setText(f"已完成: {idx} / {total}")
+            self._log(f"检测到未完成进度: {idx}/{total}")
             self._log("点击\"开始生图\"可继续")
 
     def _log(self, msg):
@@ -662,12 +619,19 @@ class MainWindow(QMainWindow):
             reply = QMessageBox.question(
                 self,
                 "确认取消",
-                "确定要取消吗？进度将被清空。",
+                "确定要取消吗？当前图片生成完成后将取消并清空进度。",
                 QMessageBox.Yes | QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
                 self.worker.cancel()
-                self._log("正在取消...")
+                self._log("将在当前图片完成后取消...")
+        else:
+            # 暂停状态下直接清空
+            self.process_mgr.reset()
+            self.progress_bar.setValue(0)
+            self.lbl_progress_index.setText(f"已完成: 0 / {self._total_prompts}")
+            self._set_status("idle")
+            self._log("已取消")
 
     @Slot()
     def _on_interrupt(self):
@@ -685,9 +649,9 @@ class MainWindow(QMainWindow):
                 QMessageBox.Yes | QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
-                self.worker.cancel()
-                self.process_mgr.reset()
-                self._log("已终止并清空进度")
+                self._terminated = True
+                self.worker.interrupt()
+                self._log("正在终止...")
 
     @Slot()
     def _on_restart(self):
@@ -700,11 +664,12 @@ class MainWindow(QMainWindow):
             )
             if reply != QMessageBox.Yes:
                 return
-            self.worker.cancel()
+            self.worker.interrupt()
             self.worker = None
         self.process_mgr.reset()
+        self.progress_bar.setMaximum(self._total_prompts)
         self.progress_bar.setValue(0)
-        self.lbl_progress_index.setText("序号: 0 / 0")
+        self.lbl_progress_index.setText(f"已完成: 0 / {self._total_prompts}")
         self._set_status("idle")
         self._log("已重置进度, 可重新开始")
 
@@ -712,8 +677,9 @@ class MainWindow(QMainWindow):
     def _on_progress(self, current, total, status):
         self.progress_bar.setMaximum(total)
         self.progress_bar.setValue(current)
-        self.lbl_status.setText(f"状态: 生成中 ({current}/{total})")
-        self.lbl_progress_index.setText(f"序号: {current} / {total}")
+        # current = 即将生成的图片索引(0-based)，已完成 current 张
+        self.lbl_status.setText(f"状态: 生成中 (当前: {current + 1}/{total})")
+        self.lbl_progress_index.setText(f"已完成: {current} / {total}")
 
     @Slot(str)
     def _on_finished(self, result):
@@ -722,13 +688,37 @@ class MainWindow(QMainWindow):
             self._set_status("completed")
             total = self.progress_bar.maximum()
             self.progress_bar.setValue(total)
-            self.lbl_progress_index.setText(f"序号: {total} / {total}")
+            self.lbl_progress_index.setText(f"已完成: {total} / {total}")
             self.process_mgr.reset()
             self._log("进度完成，已清理 process.json")
         elif result == "paused":
             self._set_status("paused")
-        elif result in ("cancelled", "interrupted"):
+            proc = self.process_mgr.load()
+            idx = proc.get("current_index", 0)
+            self.progress_bar.setMaximum(self._total_prompts)
+            self.progress_bar.setValue(idx)
+            self.lbl_status.setText("状态: 已暂停")
+            self.lbl_progress_index.setText(f"已完成: {idx} / {self._total_prompts}")
+        elif result == "cancelled":
             self._set_status("idle")
+            self.process_mgr.reset()
             self.progress_bar.setValue(0)
+            self.lbl_progress_index.setText(f"已完成: 0 / {self._total_prompts}")
+            self._log("已取消，清空进度")
+        elif result == "interrupted":
+            if self._terminated:
+                self._terminated = False
+                self.process_mgr.reset()
+                self.progress_bar.setValue(0)
+                self.lbl_progress_index.setText(f"已完成: 0 / {self._total_prompts}")
+                self._log("已终止并清空进度")
+            else:
+                # 单纯中断，从 process.json 恢复中断时的进度
+                proc = self.process_mgr.load()
+                idx = proc.get("current_index", 0)
+                self.progress_bar.setMaximum(self._total_prompts)
+                self.progress_bar.setValue(idx)
+                self.lbl_progress_index.setText(f"已完成: {idx} / {self._total_prompts}")
+            self._set_status("idle")
         else:
             self._set_status("idle")
