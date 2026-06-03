@@ -194,6 +194,13 @@ class WebUIClient:
             json.dump(options, f, ensure_ascii=False, indent=2)
         return str(target)
 
+    def get_progress(self) -> dict:
+        """获取当前生成进度，含实时预览图 (current_image base64)"""
+        try:
+            return self.api.get_progress()
+        except Exception:
+            return {}
+
     def interrupt(self):
         try:
             self.api.interrupt()

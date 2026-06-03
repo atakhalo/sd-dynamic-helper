@@ -1,8 +1,14 @@
+import base64
+import io
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
 
+from PIL import Image
+
 from PySide6.QtCore import QUrl, Qt, QThread, Signal, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from PySide6.QtWidgets import (
@@ -61,6 +67,8 @@ class GenerateWorker(QThread):
     log = Signal(str)
     progress = Signal(int, int, str)
     finished = Signal(str)
+    preview_result = Signal(object)  # PIL Image — 上一张完成的结果
+    preview_live = Signal(object)    # PIL Image — 实时预览
 
     def __init__(self, client, gen_para, prompts, process_mgr, seed_mode,
                  seed_value):
@@ -75,6 +83,7 @@ class GenerateWorker(QThread):
         self._cancelled = False
         self._interrupted = False
         self._skip_requested = False
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def pause(self):
         self._paused = True
@@ -136,66 +145,85 @@ class GenerateWorker(QThread):
             )
             self.progress.emit(i, total, "generating")
 
-            try:
-                result = self.client.txt2img(
-                    prompt_text, neg_text, self.gen_para,
-                    seed_mode=self.seed_mode,
-                    seed_value=self.seed_value,
-                    base_seed=self.seed_value,
-                    image_index=i,
-                )
+            # 在独立线程中执行 txt2img，主循环轮询进度
+            future = self._executor.submit(
+                self._do_txt2img,
+                prompt_text, neg_text, i,
+            )
 
-                # 如果 API 调用期间收到了中断/取消/跳过，不推进进度
-                if self._interrupted:
-                    if self._skip_requested:
-                        skip_idx = i + 1
-                        self.log.emit(f"已跳过第 {skip_idx} 张")
-                        self.process_mgr.update_index(skip_idx)
-                        self.finished.emit("skipped")
-                    else:
-                        self.log.emit("已中断，跳过当前进度")
-                        self.process_mgr.update_index(i)
-                        self.finished.emit("interrupted")
-                    return
+            result = None
+            while True:
+                try:
+                    # 等待最多 0.5 秒，期间可响应标志变化
+                    result = future.result(timeout=0.5)
+                    break
+                except TimeoutError:
+                    pass
 
-                if self._cancelled:
-                    self.log.emit("已取消，跳过当前进度")
-                    self.finished.emit("cancelled")
-                    return
+                # 检查标志
+                if self._interrupted or self._cancelled or self._paused:
+                    self.client.interrupt()
+                    # 等待 txt2img 线程响应中断后结束
+                    try:
+                        result = future.result(timeout=3)
+                    except Exception:
+                        result = None
+                    break
 
-                images = result.get("images", [])
-                info = result.get("info", {})
-                seed = info.get("seed", "") if isinstance(info, dict) else ""
-                elapsed = result.get("elapsed", 0)
-                total_elapsed += elapsed
+                # 轮询实时预览
+                try:
+                    prog = self.client.get_progress()
+                    raw = prog.get("current_image")
+                    if raw:
+                        img_data = base64.b64decode(raw)
+                        img = Image.open(io.BytesIO(img_data))
+                        self.preview_live.emit(img)
+                except Exception:
+                    pass
 
-                elapsed_str = self._format_time(elapsed)
-                self.log.emit(f"  seed: {seed} ({elapsed_str})")
+            # 处理结果——先检查标志（即使 API 已完成也优先响应中断/取消/暂停）
+            if self._interrupted:
+                if self._skip_requested:
+                    skip_idx = i + 1
+                    self.log.emit(f"已跳过第 {skip_idx} 张")
+                    self.process_mgr.update_index(skip_idx)
+                    self.finished.emit("skipped")
+                else:
+                    self.log.emit("已中断")
+                    self.process_mgr.update_index(i)
+                    self.finished.emit("interrupted")
+                return
+            if self._cancelled:
+                self.log.emit("已取消")
+                self.finished.emit("cancelled")
+                return
+            if self._paused:
+                self.log.emit(f"已暂停于第 {i + 1}/{total} 张")
+                self.process_mgr.update_index(i)
+                self.finished.emit("paused")
+                return
 
-                # 生成成功才推进进度
+            if result is None:
+                self.log.emit("  错误: 未知错误")
                 self.process_mgr.update_index(i + 1)
+                continue
 
-            except Exception as e:
-                # 如果异常是由中断/取消/跳过引起的，不推进进度
-                if self._interrupted:
-                    if self._skip_requested:
-                        skip_idx = i + 1
-                        self.log.emit(f"已跳过第 {skip_idx} 张")
-                        self.process_mgr.update_index(skip_idx)
-                        self.finished.emit("skipped")
-                    else:
-                        self.log.emit("已中断")
-                        self.process_mgr.update_index(i)
-                        self.finished.emit("interrupted")
-                    return
+            images = result.get("images", [])
+            info = result.get("info", {})
+            seed = info.get("seed", "") if isinstance(info, dict) else ""
+            elapsed = result.get("elapsed", 0)
+            total_elapsed += elapsed
 
-                if self._cancelled:
-                    self.log.emit("已取消")
-                    self.finished.emit("cancelled")
-                    return
+            elapsed_str = self._format_time(elapsed)
+            self.log.emit(f"  seed: {seed} ({elapsed_str})")
 
-                self.log.emit(f"  错误: {e}")
-                self.process_mgr.update_index(i + 1)
+            # 发出结果预览
+            if images:
+                self.preview_result.emit(images[0])
+
+            # 生成成功才推进进度
+            self.process_mgr.update_index(i + 1)
+
         total_real_elapsed = time.time() - total_start_time
         self.log.emit(
             f"全部完成，共 {total} 张，"
@@ -203,6 +231,19 @@ class GenerateWorker(QThread):
             f"实际耗时 {self._format_time(total_real_elapsed)}"
         )
         self.finished.emit("completed")
+
+    def _do_txt2img(self, prompt_text, neg_text, image_index):
+        """在 executor 线程中实际的 txt2img 调用"""
+        try:
+            return self.client.txt2img(
+                prompt_text, neg_text, self.gen_para,
+                seed_mode=self.seed_mode,
+                seed_value=self.seed_value,
+                base_seed=self.seed_value,
+                image_index=image_index,
+            )
+        except Exception:
+            return None
 
     @staticmethod
     def _format_time(seconds):
@@ -231,6 +272,8 @@ class MainWindow(QMainWindow):
         self._current_status = "idle"
         self._terminated = False  # 标记是否为终止操作
         self._total_prompts = 0  # 当前提示词总数缓存
+        self._last_result_img = None  # 上一张结果图 (PIL Image)
+        self._last_live_img = None    # 最后收到的实时预览图 (PIL Image)
 
         self.setWindowTitle("动态提示词生图工具")
         self.setMinimumSize(750, 780)
@@ -476,6 +519,36 @@ class MainWindow(QMainWindow):
         prog_layout.addLayout(prog_index_row)
         layout.addWidget(grp_progress)
 
+        # ── 预览区 ──
+        grp_preview = QGroupBox("预览")
+        preview_layout = QHBoxLayout(grp_preview)
+
+        # 左边：上一张结果
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(QLabel("上一张结果"))
+        self.lbl_prev_result = QLabel()
+        self.lbl_prev_result.setAlignment(Qt.AlignCenter)
+        self.lbl_prev_result.setMinimumSize(200, 200)
+        self.lbl_prev_result.setStyleSheet(
+            "QLabel { border: 1px solid #888; background: #1e1e1e; }"
+        )
+        left_layout.addWidget(self.lbl_prev_result, 1)
+        preview_layout.addLayout(left_layout, 1)
+
+        # 右边：实时预览
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(QLabel("实时预览"))
+        self.lbl_live_preview = QLabel()
+        self.lbl_live_preview.setAlignment(Qt.AlignCenter)
+        self.lbl_live_preview.setMinimumSize(200, 200)
+        self.lbl_live_preview.setStyleSheet(
+            "QLabel { border: 1px solid #888; background: #1e1e1e; }"
+        )
+        right_layout.addWidget(self.lbl_live_preview, 1)
+        preview_layout.addLayout(right_layout, 1)
+
+        layout.addWidget(grp_preview, 1)
+
         grp_log = QGroupBox("日志")
         log_layout = QVBoxLayout(grp_log)
         self.txt_log = QPlainTextEdit()
@@ -590,6 +663,14 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             pass
+
+    def resizeEvent(self, event):
+        """窗口大小变化时重新缩放预览图"""
+        super().resizeEvent(event)
+        if self._last_result_img:
+            self._set_preview_pixmap(self.lbl_prev_result, self._last_result_img)
+        if self._last_live_img:
+            self._set_preview_pixmap(self.lbl_live_preview, self._last_live_img)
 
     def _log(self, msg):
         timestamp = time.strftime("%H:%M:%S")
@@ -741,6 +822,14 @@ class MainWindow(QMainWindow):
         self.worker.log.connect(self._log)
         self.worker.progress.connect(self._on_progress)
         self.worker.finished.connect(self._on_finished)
+        self.worker.preview_result.connect(self._on_preview_result)
+        self.worker.preview_live.connect(self._on_preview_live)
+
+        # 清空旧预览
+        self.lbl_prev_result.clear()
+        self.lbl_live_preview.clear()
+        self.lbl_prev_result.setText("")
+        self.lbl_live_preview.setText("")
 
         self._set_status("generating")
         self._log("开始生图...")
@@ -827,9 +916,56 @@ class MainWindow(QMainWindow):
         self.lbl_status.setText(f"状态: 生成中 (当前: {current + 1}/{total})")
         self.lbl_progress_index.setText(f"已完成: {current} / {total}")
 
+    @Slot(object)
+    def _on_preview_result(self, img):
+        """上一张完成的结果"""
+        self._set_preview_result(img)
+
+    @Slot(object)
+    def _on_preview_live(self, img):
+        """实时预览"""
+        self._set_preview_live(img)
+
+    def _set_preview_pixmap(self, label, img):
+        """将 PIL Image 缩放适配到 label 并显示"""
+        pixmap = self._pil_to_pixmap(img)
+        if not pixmap:
+            return
+        label_size = label.size()
+        if label_size.width() > 0 and label_size.height() > 0:
+            pixmap = pixmap.scaled(
+                label_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+        label.setPixmap(pixmap)
+
+    def _set_preview_result(self, img):
+        """设置上一张结果并缓存"""
+        self._last_result_img = img
+        self._set_preview_pixmap(self.lbl_prev_result, img)
+
+    def _set_preview_live(self, img):
+        """设置实时预览并缓存"""
+        self._last_live_img = img
+        self._set_preview_pixmap(self.lbl_live_preview, img)
+
+    @staticmethod
+    def _pil_to_pixmap(img):
+        """PIL Image → QPixmap"""
+        try:
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            pixmap = QPixmap()
+            pixmap.loadFromData(buf.getvalue(), "PNG")
+            return pixmap
+        except Exception:
+            return None
+
     @Slot(str)
     def _on_finished(self, result):
         self.worker = None
+        # 生成结束，清除实时预览
+        self.lbl_live_preview.clear()
+        self.lbl_live_preview.setText("")
         if result == "completed":
             self._set_status("completed")
             total = self.progress_bar.maximum()
