@@ -19,7 +19,9 @@ class PromptManager:
         self.generator = CombinatorialPromptGenerator(
             wildcard_manager=self.wildcard_manager
         )
-        self._apply_webui_dp_settings()
+        # 启动时从 WebUI config.json 读取一次初始值
+        self._no_dedupe, self._no_sort = self._load_webui_dp_settings()
+        self._apply_wildcard_settings()
 
     def load_gen_prompt(self):
         path = self.config.gen_prompt_path
@@ -35,28 +37,20 @@ class PromptManager:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _apply_webui_dp_settings(self):
-        """读取 WebUI config.json 中 sd-dynamic-prompts 的设置并应用到 WildcardManager"""
+    def _load_webui_dp_settings(self):
+        """从 WebUI config.json 读取 sd-dynamic-prompts 设置，返回 (no_dedupe, no_sort)"""
+        no_dedupe = False
+        no_sort = False
         webui_config_path = self.config.webui_root / "config.json"
         if not webui_config_path.exists():
-            logger.warning(
-                f"WebUI 配置文件不存在: {webui_config_path}"
-            )
-            return
+            logger.warning(f"WebUI 配置文件不存在: {webui_config_path}")
+            return no_dedupe, no_sort
 
         try:
             with open(webui_config_path, "r", encoding="utf-8") as f:
                 webui_cfg = json.load(f)
-
             no_dedupe = webui_cfg.get("dp_wildcard_manager_no_dedupe", False)
             no_sort = webui_cfg.get("dp_wildcard_manager_no_sort", False)
-
-            # sd-dynamic-prompts 插件中的逻辑：
-            # dedup_wildcards = not dp_wildcard_manager_no_dedupe
-            # sort_wildcards = not dp_wildcard_manager_no_sort
-            self.wildcard_manager.dedup_wildcards = not no_dedupe
-            self.wildcard_manager.sort_wildcards = not no_sort
-
             logger.info(
                 "已从 WebUI 配置加载 sd-dynamic-prompts 设置: "
                 f"去重={'禁用' if no_dedupe else '启用'}, "
@@ -64,11 +58,33 @@ class PromptManager:
             )
         except Exception as e:
             logger.warning(f"读取 WebUI 配置失败: {e}")
+        return no_dedupe, no_sort
 
-    def generate_prompts(self):
-        # 生成前刷新 WebUI 中的 sd-dynamic-prompts 设置
-        self._apply_webui_dp_settings()
+    def _apply_wildcard_settings(self):
+        """将当前的 _no_dedupe / _no_sort 应用到 WildcardManager"""
+        # sd-dynamic-prompts 插件中的逻辑：
+        # dedup_wildcards = not dp_wildcard_manager_no_dedupe
+        # sort_wildcards = not dp_wildcard_manager_no_sort
+        self.wildcard_manager.dedup_wildcards = not self._no_dedupe
+        self.wildcard_manager.sort_wildcards = not self._no_sort
 
+    def get_webui_dp_settings(self):
+        """返回当前 (no_dedupe, no_sort) 值"""
+        return self._no_dedupe, self._no_sort
+
+    def set_wildcard_settings(self, no_dedupe, no_sort):
+        """由 UI 调用，更新设置并立即应用"""
+        self._no_dedupe = no_dedupe
+        self._no_sort = no_sort
+        self._apply_wildcard_settings()
+        logger.info(
+            "用户手动设置 sd-dynamic-prompts: "
+            f"去重={'禁用' if no_dedupe else '启用'}, "
+            f"排序={'禁用' if no_sort else '启用'}"
+        )
+
+    def generate_prompts_raw(self):
+        """生成提示词但不保存，返回 prompt dict 列表"""
         template_data = self.load_gen_prompt()
         if not template_data:
             raise FileNotFoundError(
@@ -91,11 +107,14 @@ class PromptManager:
         for i, p in enumerate(prompt_results):
             n = negative_results[i % neg_count] if neg_count > 0 else ""
             prompts.append({
-                "index": i,
                 "prompt": p,
                 "negative_prompt": n,
             })
+        return prompts
 
+    def generate_prompts(self):
+        """生成提示词并保存，返回 prompt dict 列表"""
+        prompts = self.generate_prompts_raw()
         self.save_prompts(prompts)
         return prompts
 

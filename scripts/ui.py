@@ -6,6 +6,7 @@ from PySide6.QtCore import QUrl, Qt, QThread, Signal, Slot
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -120,7 +121,7 @@ class GenerateWorker(QThread):
             neg_text = prompt_item["negative_prompt"]
 
             self.log.emit(
-                f"[{i + 1}/{total}] 正在生成: {prompt_text[:60]}..."
+                f"[{i + 1}/{total}] 正在生成: {prompt_text}\n  negative: {neg_text}"
             )
             self.progress.emit(i, total, "generating")
 
@@ -258,8 +259,29 @@ class MainWindow(QMainWindow):
         grp_neg.add_widget(self.txt_negative_template)
         layout.addWidget(grp_neg)
 
+        # ── 生成控制 ──
+        grp_control = QGroupBox("生成控制")
+        control_layout = QHBoxLayout(grp_control)
+        self.chk_no_dedupe = QCheckBox("禁用去重")
+        self.chk_no_sort = QCheckBox("禁用排序")
+        self.chk_no_dedupe.stateChanged.connect(self._on_dp_setting_changed)
+        self.chk_no_sort.stateChanged.connect(self._on_dp_setting_changed)
+        control_layout.addWidget(self.chk_no_dedupe)
+        control_layout.addWidget(self.chk_no_sort)
+        control_layout.addStretch()
+        layout.addWidget(grp_control)
+
         grp_gen = QGroupBox("提示词生成")
         gen_layout = QHBoxLayout(grp_gen)
+        gen_layout.addWidget(QLabel("轮次:"))
+        self.spin_rounds = QSpinBox()
+        self.spin_rounds.setRange(1, 999)
+        self.spin_rounds.setValue(1)
+        self.spin_rounds.setMinimumWidth(55)
+        gen_layout.addWidget(self.spin_rounds)
+        self.chk_append = QCheckBox("追加生成")
+        gen_layout.addWidget(self.chk_append)
+        gen_layout.addSpacing(10)
         self.btn_gen_prompts = QPushButton("生成提示词")
         self.btn_gen_prompts.setMinimumWidth(100)
         self.btn_gen_prompts.clicked.connect(self._on_generate_prompts)
@@ -452,6 +474,11 @@ class MainWindow(QMainWindow):
             seed = gen_para.get("seed", -1)
             self.spin_seed.setValue(seed)
 
+        # 动态提示词设置初始值
+        no_dedupe, no_sort = self.prompt_mgr.get_webui_dp_settings()
+        self.chk_no_dedupe.setChecked(no_dedupe)
+        self.chk_no_sort.setChecked(no_sort)
+
         self._refresh_prompt_count()
         self._refresh_prompt_list()
 
@@ -470,8 +497,8 @@ class MainWindow(QMainWindow):
         lines = []
         for i, p in enumerate(prompts):
             text = p.get("prompt", "")
-            short = text[:80] + "..." if len(text) > 80 else text
-            lines.append(f"[{i + 1}] {short}")
+            neg = p.get("negative_prompt", "")
+            lines.append(f"[{i + 1}] {text}\n    negative: {neg}")
         self.txt_prompt_list.setPlainText("\n".join(lines))
 
     def _restore_progress(self):
@@ -547,6 +574,16 @@ class MainWindow(QMainWindow):
         self.btn_gen_prompts.setEnabled(s in ("idle", "completed"))
 
     @Slot()
+    def _on_dp_setting_changed(self):
+        no_dedupe = self.chk_no_dedupe.isChecked()
+        no_sort = self.chk_no_sort.isChecked()
+        self.prompt_mgr.set_wildcard_settings(no_dedupe, no_sort)
+        self._log(
+            f"动态提示词设置: 去重={'禁用' if no_dedupe else '启用'}, "
+            f"排序={'禁用' if no_sort else '启用'}"
+        )
+
+    @Slot()
     def _on_read_config(self):
         """选择并读取 config.json 文件，并应用到当前配置。"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -600,8 +637,19 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_generate_prompts(self):
         try:
-            prompts = self.prompt_mgr.generate_prompts()
-            self._log(f"已生成 {len(prompts)} 条提示词")
+            rounds = self.spin_rounds.value()
+            append = self.chk_append.isChecked()
+
+            all_prompts = []
+            if append:
+                all_prompts = self.prompt_mgr.load_prompts()
+
+            for r in range(rounds):
+                batch = self.prompt_mgr.generate_prompts_raw()
+                all_prompts.extend(batch)
+
+            self.prompt_mgr.save_prompts(all_prompts)
+            self._log(f"已生成 {len(all_prompts)} 条提示词（{rounds} 轮）")
             self._refresh_prompt_count()
             self._refresh_prompt_list()
             self.process_mgr.reset()
