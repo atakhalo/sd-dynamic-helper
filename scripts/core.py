@@ -177,7 +177,9 @@ class ProcessManager:
         self.save(self._default())
 
     def update_index(self, index):
-        self.save({"current_index": index})
+        data = self.load()
+        data["current_index"] = index
+        self.save(data)
 
     def can_resume(self, total):
         data = self.load()

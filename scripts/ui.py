@@ -536,6 +536,15 @@ class MainWindow(QMainWindow):
         self.progress_bar.setMaximum(total)
         self.progress_bar.setValue(idx)
         self.lbl_progress_index.setText(f"已完成: {idx} / {total}")
+
+        # 还原种子设置
+        seed_mode = data.get("seed_mode", "fixed")
+        seed_value = data.get("seed_value", -1)
+        self.radio_fixed.setChecked(seed_mode == "fixed")
+        self.radio_increment.setChecked(seed_mode == "increment")
+        if seed_value >= 0:
+            self.spin_seed.setValue(seed_value)
+
         if total > 0 and self.process_mgr.can_resume(total):
             self._log(f"检测到未完成进度: {idx}/{total}")
             self._log("点击\"开始生图\"可继续")
@@ -718,6 +727,12 @@ class MainWindow(QMainWindow):
 
         seed_mode = "increment" if self.radio_increment.isChecked() else "fixed"
         seed_value = self.spin_seed.value()
+
+        # 将种子信息记录到 process.json
+        proc_data = self.process_mgr.load()
+        proc_data["seed_mode"] = seed_mode
+        proc_data["seed_value"] = seed_value
+        self.process_mgr.save(proc_data)
 
         self.worker = GenerateWorker(
             self.client, gen_para, prompts, self.process_mgr,
