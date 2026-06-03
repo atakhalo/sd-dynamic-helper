@@ -74,6 +74,7 @@ class GenerateWorker(QThread):
         self._paused = False
         self._cancelled = False
         self._interrupted = False
+        self._skip_requested = False
 
     def pause(self):
         self._paused = True
@@ -87,6 +88,10 @@ class GenerateWorker(QThread):
         self._interrupted = True
         self._paused = False
         self.client.interrupt()
+
+    def skip(self):
+        self._skip_requested = True
+        self.interrupt()
 
     def run(self):
         total = len(self.prompts)
@@ -105,9 +110,15 @@ class GenerateWorker(QThread):
                 return
 
             if self._interrupted:
-                self.log.emit("已中断")
-                self.process_mgr.update_index(i)
-                self.finished.emit("interrupted")
+                if self._skip_requested:
+                    skip_idx = i + 1
+                    self.log.emit(f"已跳过第 {skip_idx} 张")
+                    self.process_mgr.update_index(skip_idx)
+                    self.finished.emit("skipped")
+                else:
+                    self.log.emit("已中断")
+                    self.process_mgr.update_index(i)
+                    self.finished.emit("interrupted")
                 return
 
             if self._paused:
@@ -134,11 +145,17 @@ class GenerateWorker(QThread):
                     image_index=i,
                 )
 
-                # 如果 API 调用期间收到了中断/取消，不推进进度
+                # 如果 API 调用期间收到了中断/取消/跳过，不推进进度
                 if self._interrupted:
-                    self.log.emit("已中断，跳过当前进度")
-                    self.process_mgr.update_index(i)
-                    self.finished.emit("interrupted")
+                    if self._skip_requested:
+                        skip_idx = i + 1
+                        self.log.emit(f"已跳过第 {skip_idx} 张")
+                        self.process_mgr.update_index(skip_idx)
+                        self.finished.emit("skipped")
+                    else:
+                        self.log.emit("已中断，跳过当前进度")
+                        self.process_mgr.update_index(i)
+                        self.finished.emit("interrupted")
                     return
 
                 if self._cancelled:
@@ -159,11 +176,17 @@ class GenerateWorker(QThread):
                 self.process_mgr.update_index(i + 1)
 
             except Exception as e:
-                # 如果异常是由中断/取消引起的，不推进进度
+                # 如果异常是由中断/取消/跳过引起的，不推进进度
                 if self._interrupted:
-                    self.log.emit("已中断")
-                    self.process_mgr.update_index(i)
-                    self.finished.emit("interrupted")
+                    if self._skip_requested:
+                        skip_idx = i + 1
+                        self.log.emit(f"已跳过第 {skip_idx} 张")
+                        self.process_mgr.update_index(skip_idx)
+                        self.finished.emit("skipped")
+                    else:
+                        self.log.emit("已中断")
+                        self.process_mgr.update_index(i)
+                        self.finished.emit("interrupted")
                     return
 
                 if self._cancelled:
@@ -416,6 +439,11 @@ class MainWindow(QMainWindow):
         self.btn_cancel.clicked.connect(self._on_cancel)
         ctrl_layout.addWidget(self.btn_cancel)
 
+        self.btn_skip = QPushButton("跳过")
+        self.btn_skip.setMinimumWidth(70)
+        self.btn_skip.clicked.connect(self._on_skip)
+        ctrl_layout.addWidget(self.btn_skip)
+
         self.btn_interrupt = QPushButton("中断")
         self.btn_interrupt.setMinimumWidth(70)
         self.btn_interrupt.clicked.connect(self._on_interrupt)
@@ -505,10 +533,10 @@ class MainWindow(QMainWindow):
         total = self._refresh_prompt_count()
         data = self.process_mgr.load()
         idx = data.get("current_index", 0)
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(idx)
+        self.lbl_progress_index.setText(f"已完成: {idx} / {total}")
         if total > 0 and self.process_mgr.can_resume(total):
-            self.progress_bar.setMaximum(total)
-            self.progress_bar.setValue(idx)
-            self.lbl_progress_index.setText(f"已完成: {idx} / {total}")
             self._log(f"检测到未完成进度: {idx}/{total}")
             self._log("点击\"开始生图\"可继续")
 
@@ -568,6 +596,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(s in ("idle", "paused"))
         self.btn_pause.setEnabled(s == "generating")
         self.btn_cancel.setEnabled(s in ("generating", "paused"))
+        self.btn_skip.setEnabled(s == "generating")
         self.btn_interrupt.setEnabled(s == "generating")
         self.btn_terminate.setEnabled(s in ("generating", "paused"))
         self.btn_restart.setEnabled(s not in ("generating",))
@@ -729,6 +758,13 @@ class MainWindow(QMainWindow):
             self._log("已取消")
 
     @Slot()
+    def _on_skip(self):
+        if self.worker:
+            self.btn_skip.setEnabled(False)
+            self.worker.skip()
+            self._log("正在跳过当前图片...")
+
+    @Slot()
     def _on_interrupt(self):
         if self.worker:
             self.worker.interrupt()
@@ -801,6 +837,17 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(0)
             self.lbl_progress_index.setText(f"已完成: 0 / {self._total_prompts}")
             self._log("已取消，清空进度")
+        elif result == "skipped":
+            self._set_status("paused")
+            self.btn_skip.setEnabled(True)
+            proc = self.process_mgr.load()
+            idx = proc.get("current_index", 0)
+            self.progress_bar.setMaximum(self._total_prompts)
+            self.progress_bar.setValue(idx)
+            self.lbl_status.setText("状态: 已暂停")
+            self.lbl_progress_index.setText(f"已完成: {idx} / {self._total_prompts}")
+            self._log(f"当前图片已跳过，进度推进至 {idx}/{self._total_prompts}，可继续生成")
+
         elif result == "interrupted":
             if self._terminated:
                 self._terminated = False
