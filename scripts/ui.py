@@ -69,6 +69,7 @@ class GenerateWorker(QThread):
     finished = Signal(str)
     preview_result = Signal(object)  # PIL Image — 上一张完成的结果
     preview_live = Signal(object)    # PIL Image — 实时预览
+    preview_step = Signal(str)       # 采样步数字符串 "(x/n)"
 
     def __init__(self, client, gen_para, prompts, process_mgr, seed_mode,
                  seed_value):
@@ -161,25 +162,33 @@ class GenerateWorker(QThread):
                     pass
 
                 # 检查标志
-                if self._interrupted or self._cancelled or self._paused:
+                if self._interrupted:
                     self.client.interrupt()
-                    # 等待 txt2img 线程响应中断后结束
-                    try:
-                        result = future.result(timeout=3)
-                    except Exception:
-                        result = None
+                    # 中断：立即中断，最多等 3 秒，期间继续轮询预览
+                    wait_start = time.time()
+                    while True:
+                        try:
+                            result = future.result(timeout=0.5)
+                            break
+                        except TimeoutError:
+                            pass
+                        self._poll_progress()
+                        if (time.time() - wait_start) > 3.0:
+                            break
+                    break
+                if self._cancelled or self._paused:
+                    # 取消/暂停：不中断，等当前张完成，期间继续轮询预览
+                    while True:
+                        try:
+                            result = future.result(timeout=0.5)
+                            break
+                        except TimeoutError:
+                            pass
+                        self._poll_progress()
                     break
 
-                # 轮询实时预览
-                try:
-                    prog = self.client.get_progress()
-                    raw = prog.get("current_image")
-                    if raw:
-                        img_data = base64.b64decode(raw)
-                        img = Image.open(io.BytesIO(img_data))
-                        self.preview_live.emit(img)
-                except Exception:
-                    pass
+                # 轮询实时预览与步数
+                self._poll_progress()
 
             # 处理结果——先检查标志（即使 API 已完成也优先响应中断/取消/暂停）
             if self._interrupted:
@@ -194,12 +203,34 @@ class GenerateWorker(QThread):
                     self.finished.emit("interrupted")
                 return
             if self._cancelled:
-                self.log.emit("已取消")
+                if result is not None:
+                    # 当前张已完成，记录日志
+                    images = result.get("images", [])
+                    info = result.get("info", {})
+                    seed = info.get("seed", "") if isinstance(info, dict) else ""
+                    elapsed = result.get("elapsed", 0)
+                    total_elapsed += elapsed
+                    elapsed_str = self._format_time(elapsed)
+                    self.log.emit(f"  seed: {seed} ({elapsed_str})")
+                    if images:
+                        self.preview_result.emit(images[0])
+                self.log.emit("已取消，清空进度")
                 self.finished.emit("cancelled")
                 return
             if self._paused:
+                if result is not None:
+                    # 当前张已完成，处理结果后暂停
+                    images = result.get("images", [])
+                    info = result.get("info", {})
+                    seed = info.get("seed", "") if isinstance(info, dict) else ""
+                    elapsed = result.get("elapsed", 0)
+                    total_elapsed += elapsed
+                    elapsed_str = self._format_time(elapsed)
+                    self.log.emit(f"  seed: {seed} ({elapsed_str})")
+                    if images:
+                        self.preview_result.emit(images[0])
+                    self.process_mgr.update_index(i + 1)
                 self.log.emit(f"已暂停于第 {i + 1}/{total} 张")
-                self.process_mgr.update_index(i)
                 self.finished.emit("paused")
                 return
 
@@ -244,6 +275,29 @@ class GenerateWorker(QThread):
             )
         except Exception:
             return None
+
+    def _poll_progress(self):
+        """轮询实时预览与步数"""
+        try:
+            prog = self.client.get_progress()
+            raw = prog.get("current_image")
+            if raw:
+                img_data = base64.b64decode(raw)
+                img = Image.open(io.BytesIO(img_data))
+                self.preview_live.emit(img)
+            state = prog.get("state", {}) or {}
+            step = state.get("sampling_step")
+            steps = state.get("sampling_steps")
+            eta = prog.get("eta_relative")
+            parts = []
+            if step is not None and steps is not None:
+                parts.append(f"{step}/{steps}")
+            if eta is not None:
+                parts.append(f"ETA {eta:.1f}s")
+            if parts:
+                self.preview_step.emit("  ".join(parts))
+        except Exception:
+            pass
 
     @staticmethod
     def _format_time(seconds):
@@ -537,7 +591,12 @@ class MainWindow(QMainWindow):
 
         # 右边：实时预览
         right_layout = QVBoxLayout()
-        right_layout.addWidget(QLabel("实时预览"))
+        title_row = QHBoxLayout()
+        title_row.addWidget(QLabel("实时预览"))
+        self.lbl_live_step = QLabel("")
+        title_row.addWidget(self.lbl_live_step)
+        title_row.addStretch()
+        right_layout.addLayout(title_row)
         self.lbl_live_preview = QLabel()
         self.lbl_live_preview.setAlignment(Qt.AlignCenter)
         self.lbl_live_preview.setMinimumSize(200, 200)
@@ -824,6 +883,7 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self._on_finished)
         self.worker.preview_result.connect(self._on_preview_result)
         self.worker.preview_live.connect(self._on_preview_live)
+        self.worker.preview_step.connect(self._on_preview_step)
 
         # 清空旧预览
         self.lbl_prev_result.clear()
@@ -926,6 +986,11 @@ class MainWindow(QMainWindow):
         """实时预览"""
         self._set_preview_live(img)
 
+    @Slot(str)
+    def _on_preview_step(self, text):
+        """采样步数"""
+        self.lbl_live_step.setText(text)
+
     def _set_preview_pixmap(self, label, img):
         """将 PIL Image 缩放适配到 label 并显示"""
         pixmap = self._pil_to_pixmap(img)
@@ -966,6 +1031,8 @@ class MainWindow(QMainWindow):
         # 生成结束，清除实时预览
         self.lbl_live_preview.clear()
         self.lbl_live_preview.setText("")
+        self.lbl_live_step.clear()
+        self.lbl_live_step.setText("")
         if result == "completed":
             self._set_status("completed")
             total = self.progress_bar.maximum()
