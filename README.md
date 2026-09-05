@@ -61,8 +61,21 @@ webui 动态提示词批量生图工具，支持断点续传。
 	5. api_url — WebUI 的 URL
 	6. webui — webui 路径，用于读取设置
 	7. wildcards — 动态提示词使用的 wildcards 路径
+	8. fix_pnginfo — 生图后把图片元数据中的 `Template` / `Negative Template` 改为 genPrompt.json 中的模板内容（默认 true；设为 false 关闭）
 2. 可以是相对路径或绝对路径
-3. 相对路径基于 sd-dynamic-helper 文件夹 计算
+3. 普通相对路径基于 sd-dynamic-helper 文件夹 计算
+4. `$$` 前缀：以 **config.json 所在目录** 为基准计算相对路径（便于子目录配置引用外部文件）
+	1. `"$$/genPrompt.json"` — 与 config.json 同目录
+	2. `"$$../genPara.json"` — config.json 所在目录的上一级
+	3. 示例：`data/animaV11/2-animaV11-Pre/config.json` 中
+		- `"genPrompt": "$$/genPrompt.json"`（等价原 `data/animaV11/2-animaV11-Pre/genPrompt.json`）
+		- `"genPara": "$$../genPara.json"`（等价原 `data/animaV11/genPara.json`）
+
+关于图片元数据模板信息
+1. 生图结束后，程序在 WebUI 输出目录（`output/txt2img-images`，含按日期保存的子目录）中查找最近的图片，并把其元数据（PNG 的 tEXt `parameters`；JPG/WebP 等图片的 EXIF `UserComment`）中 `Template` 与 `Negative Template` 的内容替换为 genPrompt.json 中 `prompt` / `negative_prompt`（初始模板）
+2. 查找与校验策略：以生成结束时刻为中心 ±10 秒窗口内按修改时间新→旧依次候选 → 校验元数据中 `Prompt` 与 `Seed` 和本次生图一致（防止误改其他图片）→ 一致才执行修改
+3. 若图片元数据中没有这两个字段，会自动补写
+4. 元数据中的其他字段（Prompt、Seed、参数等）保持不变
 
 关于配置 genpara
 1. 配置 需要修改的参数，否则是默认值； 参数可参考 [data/args.md](data/args.md)

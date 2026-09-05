@@ -72,7 +72,8 @@ class GenerateWorker(QThread):
     preview_step = Signal(str)       # 采样步数字符串 "(x/n)"
 
     def __init__(self, client, gen_para, prompts, process_mgr, seed_mode,
-                 seed_value):
+                 seed_value, template_prompt="", template_negative="",
+                 fix_meta=True, webui_root=None):
         super().__init__()
         self.client = client
         self.gen_para = gen_para
@@ -80,6 +81,13 @@ class GenerateWorker(QThread):
         self.process_mgr = process_mgr
         self.seed_mode = seed_mode
         self.seed_value = seed_value
+        self._template_prompt = template_prompt
+        self._template_negative = template_negative
+        self._fix_meta = fix_meta
+        self._webui_root = Path(webui_root) if webui_root else None
+        self._output_dirs = []          # 候选输出目录（按优先级）
+        self._image_exts = {".png", ".jpg", ".jpeg", ".webp"}
+        self._meta_enabled = False
         self._paused = False
         self._cancelled = False
         self._interrupted = False
@@ -112,6 +120,8 @@ class GenerateWorker(QThread):
 
         total_start_time = time.time()
         total_elapsed = 0.0
+
+        self._setup_meta_fix()
 
         for i in range(start_idx, total):
             if self._cancelled:
@@ -214,6 +224,7 @@ class GenerateWorker(QThread):
                     self.log.emit(f"  seed: {seed} ({elapsed_str})")
                     if images:
                         self.preview_result.emit(images[0])
+                    self._fix_new_metadata(seed, prompt_text)
                 self.log.emit("已取消，清空进度")
                 self.finished.emit("cancelled")
                 return
@@ -229,6 +240,7 @@ class GenerateWorker(QThread):
                     self.log.emit(f"  seed: {seed} ({elapsed_str})")
                     if images:
                         self.preview_result.emit(images[0])
+                    self._fix_new_metadata(seed, prompt_text)
                     self.process_mgr.update_index(i + 1)
                 self.log.emit(f"已暂停于第 {i + 1}/{total} 张")
                 self.finished.emit("paused")
@@ -251,6 +263,10 @@ class GenerateWorker(QThread):
             # 发出结果预览
             if images:
                 self.preview_result.emit(images[0])
+
+            # 生图后：把图片元数据中的 Template / Negative Template
+            # 改为 genPrompt.json 中的模板内容
+            self._fix_new_metadata(seed, prompt_text)
 
             # 生成成功才推进进度
             self.process_mgr.update_index(i + 1)
@@ -275,6 +291,152 @@ class GenerateWorker(QThread):
             )
         except Exception:
             return None
+
+    def _setup_meta_fix(self):
+        """初始化图片元数据修复：确定候选输出目录与保存格式。
+
+        生图后把图片元数据中 Template / Negative Template 的内容
+        改为 genPrompt.json 中的模板（原值为实际生图提示词）。
+
+        WebUI 设置中的输出目录可能不生效（ForgeNeo 实际保存到
+        output/txt2img-images/[日期]/），因此收集多个候选目录：
+        1. WebUI options 中的 outdir_samples / outdir_txt2img_samples
+        2. webui 目录下 output/txt2img-images、outputs/txt2img-images
+        """
+        if not self._fix_meta:
+            self._meta_enabled = False
+            return
+        if self._template_prompt == "":
+            self._meta_enabled = False
+            self.log.emit("  [元数据] genPrompt.json 中无模板 prompt，跳过模板信息修复")
+            return
+        try:
+            options = self.client.get_options()
+        except Exception:
+            self._meta_enabled = False
+            self.log.emit("  [元数据] 无法读取 WebUI 设置，跳过模板信息修复")
+            return
+        fmt = str(options.get("samples_format") or "png").lower().lstrip(".")
+        if fmt in ("png", "jpg", "jpeg", "webp"):
+            self._image_exts = {"." + fmt}
+
+        # 收集候选目录（去重、仅保留存在的）
+        candidates = []
+        for key in ("outdir_samples", "outdir_txt2img_samples"):
+            raw = options.get(key) or ""
+            if raw:
+                p = Path(raw)
+                if not p.is_absolute() and self._webui_root:
+                    p = self._webui_root / p
+                candidates.append(p)
+        # ForgeNeo / A1111 默认输出目录兜底（options 中设置可能不生效）
+        if self._webui_root:
+            for sub in ("output/txt2img-images", "outputs/txt2img-images"):
+                candidates.append(self._webui_root / sub)
+
+        seen = set()
+        self._output_dirs = []
+        for p in candidates:
+            key = str(p.resolve()) if p.exists() else str(p)
+            if key in seen:
+                continue
+            seen.add(key)
+            if p.exists():
+                self._output_dirs.append(p)
+
+        if not self._output_dirs:
+            self._meta_enabled = False
+            self.log.emit("  [元数据] 未找到可用的 WebUI 输出目录，跳过模板信息修复")
+            return
+        self._meta_enabled = True
+        self.log.emit(
+            f"  [元数据] 输出目录: {self._output_dirs[0]} (格式 {fmt}) | "
+            f"模板 {len(self._template_prompt)} 字 / "
+            f"负向模板 {len(self._template_negative)} 字"
+        )
+
+    def _list_recent_images(self, window=10.0):
+        """返回输出目录中 [生成结束时刻-window, 生成结束时刻+window] 内修改的图片文件（新→旧）。
+
+        窗口以生成结束时刻（本函数调用时间）为中心：WebUI 保存图片的 mtime
+        即在该时刻附近，因此能精确圈出刚生成的图片，排除更早的图片。
+        """
+        if not self._meta_enabled or not self._output_dirs:
+            return []
+        now = time.time()
+        floor = now - window
+        ceiling = now + window
+        result = []
+        for d in self._output_dirs:
+            try:
+                for p in d.rglob("*"):
+                    if not p.is_file() or p.suffix.lower() not in self._image_exts:
+                        continue
+                    if "-before-highres-fix" in p.name:
+                        continue
+                    try:
+                        mtime = p.stat().st_mtime
+                    except OSError:
+                        continue
+                    if floor <= mtime <= ceiling:
+                        result.append((p, mtime))
+            except Exception:
+                continue
+        result.sort(key=lambda x: x[1], reverse=True)
+        return [p for p, _ in result]
+
+    def _fix_new_metadata(self, seed, prompt_text):
+        """生图后：按最新时间匹配输出目录中的图片，验证其元数据中的
+        提示词与种子和本次生图一致后，改写 Template / Negative Template。
+
+        - 以生成结束时刻为中心 ±10 秒窗口内的图片按修改时间从新到旧依次候选
+        - 只有 UserComment/parameters 中 Prompt 与 Seed 均与本次一致才处理
+        """
+        if not self._meta_enabled:
+            return
+        candidates = self._list_recent_images()
+        if not candidates:
+            self.log.emit(
+                f"  [元数据] 输出目录中未找到近期的图片文件 (窗口 {len(self._output_dirs)} 目录)"
+            )
+            return
+        from scripts.meta import (
+            parse_infotext,
+            read_infotext,
+            set_template_info,
+            write_infotext,
+        )
+        seed_str = str(seed)
+        for f in candidates:
+            try:
+                infotext = read_infotext(f)
+                if not infotext:
+                    continue
+                img_prompt, _, params = parse_infotext(infotext)
+                d = {k: v for k, v in params}
+                img_seed = str(d.get("Seed", ""))
+                # 一致性验证：提示词与种子都和本次生图一致才算本次图片
+                if img_prompt.strip() != prompt_text.strip():
+                    continue
+                if seed_str and img_seed != seed_str:
+                    continue
+                new_text = set_template_info(
+                    infotext, self._template_prompt, self._template_negative
+                )
+                if new_text == infotext:
+                    self.log.emit(f"  [元数据] 模板信息已一致: {f.name}")
+                    return
+                if write_infotext(f, new_text):
+                    self.log.emit(f"  [元数据] 已更新模板信息: {f.name}")
+                else:
+                    self.log.emit(f"  [元数据] 写入失败: {f.name}")
+                return
+            except Exception as e:
+                self.log.emit(f"  [元数据] 校验/更新失败 {f.name}: {e}")
+        self.log.emit(
+            f"  [元数据] 未找到与本次生图一致的图片"
+            f"（种子 {seed_str}，提示词前 40 字: {prompt_text[:40]}...）"
+        )
 
     def _poll_progress(self):
         """轮询实时预览与步数"""
@@ -874,9 +1036,21 @@ class MainWindow(QMainWindow):
         proc_data["seed_value"] = seed_value
         self.process_mgr.save(proc_data)
 
+        # 读取 genPrompt.json 模板，用于生图后写入图片元数据
+        template_data = self.prompt_mgr.load_gen_prompt() or {}
+        if not template_data:
+            self._log(
+                f"警告: 未找到提示词模板文件 ({self.config.gen_prompt_path})，"
+                "生图后将无法写入模板信息"
+            )
+
         self.worker = GenerateWorker(
             self.client, gen_para, prompts, self.process_mgr,
             seed_mode, seed_value,
+            template_prompt=template_data.get("prompt", ""),
+            template_negative=template_data.get("negative_prompt", ""),
+            fix_meta=self.config.fix_pnginfo,
+            webui_root=self.config.webui_root,
         )
         self.worker.log.connect(self._log)
         self.worker.progress.connect(self._on_progress)
